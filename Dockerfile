@@ -101,7 +101,7 @@ ARG GH_TOKEN
 # on the server, which throws on relative URLs, and by the browser via
 # window.__ENV — an empty value breaks the whole app.
 RUN set -eu; \
-    if [ -n "${BASE_URL}" ]; then \
+    if [ -n "${BASE_URL:-}" ]; then \
       case "${API_PREFIX}" in \
         /*) ;; \
         *) echo "ERROR: API_PREFIX must start with '/' (got '${API_PREFIX}')" >&2; exit 1 ;; \
@@ -119,9 +119,9 @@ RUN set -eu; \
       echo "WARN: NEXT_PUBLIC_GATEWAY_URL in the container environment." >&2; \
     fi
 
-ENV BASE_URL=${BASE_URL}
-ENV NEXT_PUBLIC_API_URL=${BASE_URL}${API_PREFIX}
-ENV NEXT_PUBLIC_GATEWAY_URL=${BASE_URL}
+ENV BASE_URL=${BASE_URL:-}
+ENV NEXT_PUBLIC_API_URL=${BASE_URL:-}${API_PREFIX}
+ENV NEXT_PUBLIC_GATEWAY_URL=${BASE_URL:-}
 
 ENV S3_ACCESS_KEY=${S3_ACCESS_KEY}
 ENV S3_SECRET_KEY=${S3_SECRET_KEY}
