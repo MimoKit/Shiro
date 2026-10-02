@@ -12,6 +12,9 @@ import {
   PostOutdate,
   PostRelated,
 } from '~/components/modules/post'
+import { AIInsights } from '~/components/modules/post/AIInsights'
+import { AISummary } from '~/components/modules/post/AISummary'
+import { AITranslationBanner } from '~/components/modules/post/AITranslationBanner'
 import { GoToAdminEditingButton } from '~/components/modules/shared/GoToAdminEditingButton'
 import { ReadIndicatorForMobile } from '~/components/modules/shared/ReadIndicator'
 import { TocFAB } from '~/components/modules/toc/TocFAB'
@@ -133,6 +136,18 @@ const PostPage = ({ data }: { data: PostWithTranslation }) => {
           />
 
           <PostMetaBarInternal className="mb-8 justify-center" />
+
+          {/* AI 多语言翻译便捷切换条 */}
+          <AITranslationBanner
+            id={id!}
+            sourceLang={data.translationMeta?.sourceLang}
+          />
+
+          {/* AI 智能摘要卡片 (Yohaku 风格) */}
+          <AISummary summary={data.summary} />
+
+          {/* AI 精读手记 (余白伴读可折叠卡片) */}
+          <AIInsights id={id!} />
 
           <PostOutdate />
 
