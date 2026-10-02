@@ -30,7 +30,16 @@ export const post = {
           prefer: 'lexical',
         })
 
-        return data.$serialized as PostWithTranslation
+        // 详情页把返回值**直接当 post 本体**使用（读 `data.contentFormat`
+        // / `data.content` / `data.text`），因此这里必须解包一层。
+        // Core v14 的详情响应是 `{ data: <post>, meta: {...} }`，归一化对
+        // 多键信封保留外层，故取 `$serialized.data`；旧 Core 无信封时回退到
+        // `$serialized` 自身。
+        const serialized = data.$serialized as
+          | (PostWithTranslation & { data?: PostWithTranslation })
+          | undefined
+
+        return (serialized?.data ?? serialized) as PostWithTranslation
       },
     }),
 }

@@ -44,13 +44,19 @@ export default function Home() {
     keywords: config?.seo.keywords,
   }
   const { notes, posts } = useHomeQueryData()
+  // getTop 的条目在不同 Core 版本下时间字段可能是 created / createdAt，
+  // 这里统一取值，避免 Invalid Date（并在排序时兜底）。
+  const pickCreated = (item: any): string | undefined =>
+    item?.created ?? item?.createdAt ?? undefined
+  const toTime = (item: any) => {
+    const t = new Date(pickCreated(item) ?? 0).getTime()
+    return Number.isNaN(t) ? 0 : t
+  }
   const listLdJson: WithContext<ItemList> = {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
-    itemListElement: [...notes, ...posts]
-      .sort(
-        (a, b) => new Date(b.created).getTime() - new Date(a.created).getTime(),
-      )
+    itemListElement: [...(notes ?? []), ...(posts ?? [])]
+      .sort((a, b) => toTime(b) - toTime(a))
       .map((article, index) => ({
         '@type': 'ListItem',
         position: index + 1,
@@ -67,8 +73,8 @@ export default function Home() {
           url:
             'nid' in article
               ? `${config?.url.webUrl}/notes/${article.nid}`
-              : `${config?.url.webUrl}/posts/${article.category.slug}/${article.slug}`,
-          datePublished: article.created,
+              : `${config?.url.webUrl}/posts/${article.category?.slug ?? ''}/${article.slug}`,
+          datePublished: pickCreated(article),
         },
       })),
   }

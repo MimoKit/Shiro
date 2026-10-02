@@ -53,9 +53,35 @@ let nextConfig = {
       // Squoosh has memory leak issue, but it will remove in next.js 14.3.0
       // !process.env.VERCEL && isProd && eval('!process.env.NEXT_SHARP_PATH'),
       process.env.NODE_ENV !== 'production',
+    // Remote images must be listed here or `/_next/image` answers 400
+    // `"url" parameter is not allowed` (see matchRemotePattern()).
+    //
+    // Both http and https are allowed on purpose. The site owner avatar is an
+    // arbitrary, owner-configured URL coming from the backend, and it is often
+    // plain http (e.g. `http://q1.qlogo.cn/g?b=qq&nk=...&s=640`). Restricting to
+    // https made every such avatar fail with a 400, because in production
+    // `unoptimized` is false and Next proxies the request through
+    // `/_next/image`. A hostname allow-list is deliberately NOT used: the
+    // avatar host is configured by the site owner in the backend, so any
+    // list would break again the moment they change it.
+    //
+    // Serving the image through the same-origin optimizer is also what keeps it
+    // working on an https site: rendering a raw http <img src> would be blocked
+    // as mixed content by the browser.
+    //
+    // Residual risk is bounded by Next's own guards, which stay enabled:
+    //   - `dangerouslyAllowLocalIP` defaults to false, so URLs resolving to
+    //     private/loopback addresses are rejected (blocks SSRF / intranet scans)
+    //   - the upstream response must actually be `image/*`, so this is not a
+    //     general-purpose open proxy
+    //   - 7s upstream timeout and a response size cap
     remotePatterns: [
       {
         protocol: 'https',
+        hostname: '**',
+      },
+      {
+        protocol: 'http',
         hostname: '**',
       },
     ],

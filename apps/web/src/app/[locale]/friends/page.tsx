@@ -34,8 +34,11 @@ export default function Page() {
   const { data, isLoading } = useQuery({
     queryKey: ['friends'],
     queryFn: async () => {
-      const { data } = await apiClient.link.getAll()
-      return data
+      // `getAll()` 走 `/links/all`（单键信封 `{"data":[...]}` → 数据层解包成数组本身），
+      // 而 `/links` 是多键 `{data,meta}`（保留外层）。两种形状都要兼容。
+      const res: any = await apiClient.link.getAll()
+      const list = res?.data ?? res
+      return Array.isArray(list) ? list : []
     },
     select: useCallback((data: LinkModel[]) => {
       const friends: LinkModel[] = []

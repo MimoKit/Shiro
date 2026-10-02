@@ -9,6 +9,6 @@ export const API_URL: string = (() => {
     return env('NEXT_PUBLIC_CLIENT_API_URL') || ''
   }
 
-  return env('NEXT_PUBLIC_API_URL') || '/api/v2'
+  return env('NEXT_PUBLIC_API_URL') || '/api/v3'
 })() as string
 export const GATEWAY_URL = env('NEXT_PUBLIC_GATEWAY_URL') || ''

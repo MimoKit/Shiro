@@ -1,12 +1,76 @@
-version: '3'
+# Shiro — production compose service.
+#
+# Build the image first (see docs/build-deploy.md):
+#   export BASE_URL=https://blog.xlinxc.cn
+#   ./scripts/build-image.sh --base-url "$BASE_URL" --tag shiro:v14-compat --extra-tag shiro:latest
+#
+# NOTE: this file intentionally no longer pins innei/shiro:latest — that image is
+# from 2024-10 and only speaks the Core 10.x API.
+#
+# `version:` is omitted on purpose; Compose v2+ ignores it and newer versions warn.
 
 services:
   shiro:
     container_name: shiro
-    image: innei/shiro:latest
+    image: shiro:v14-compat
+    init: true # reap zombies instead of relying on tini inside the image
+
+    environment:
+      # ---- REQUIRED ------------------------------------------------------
+      # These are read at RUNTIME by next-runtime-env: on the server from
+      # process.env, in the browser from window.__ENV (injected at runtime by
+      # <PublicEnvScript />). They are NOT inlined at build time, so changing
+      # them only needs a container restart.
+      #
+      # They must be ABSOLUTE URLs: the server fetches through ofetch, which
+      # cannot resolve a relative URL ("Failed to parse URL from /api/v3/...").
+      #
+      # If they are missing, the browser gets an empty API URL and the frontend
+      # cannot reach the backend at all.
+      NEXT_PUBLIC_API_URL: https://blog.xlinxc.cn/api/v3
+      NEXT_PUBLIC_GATEWAY_URL: https://blog.xlinxc.cn
+
+      PORT: "2323"
+      HOSTNAME: 0.0.0.0
+
+      # ---- OPTIONAL runtime secrets --------------------------------------
+      # These are read at RUNTIME by server routes:
+      #   apps/web/src/app/api/tmdb/[...all]/route.ts   -> TMDB_API_KEY
+      #   apps/web/src/app/api/gh/[...all]/route.ts     -> GH_TOKEN
+      #   apps/web/src/app/api/webhook/route.ts         -> WEBHOOK_SECRET
+      #   apps/web/src/app/[locale]/layout.tsx          -> TMDB_API_KEY (feature flag)
+      # Without them the corresponding endpoints answer 500 (the routes check and
+      # bail with an explicit message).
+      #
+      # Provide them here, or keep the legacy approach of mounting a .env file at
+      # /app/apps/web/.env (see the commented volume below). Note that values set
+      # in `environment:` WIN over the same keys in a mounted .env — @next/env
+      # only fills keys that are not already present in process.env.
+      # TMDB_API_KEY: ""
+      # GH_TOKEN: ""
+      # WEBHOOK_SECRET: ""
+
+      # Do NOT set NEXT_SHARP_PATH: Next 16 no longer reads it. sharp is placed
+      # at /app/node_modules/sharp by the Dockerfile.
+
     volumes:
-      - ./.env:/app/apps/web/.env
-      - ./public:/app/apps/web/public
+      # Optional: custom favicon / static assets.
+      # WARNING: this REPLACES the image's /app/apps/web/public entirely, so the
+      # host directory must already contain what the image ships (favicon.ico,
+      # apple-touch-icon.png, ...). Comment out if you don't need custom assets.
+      - ./shiro-public:/app/apps/web/public
+
+      # Legacy alternative for runtime secrets: Next loads .env from the server
+      # entry's directory (/app/apps/web) at startup, so this still works.
+      # - ./.env:/app/apps/web/.env
+
     restart: always
     ports:
       - 2323:2323
+
+    # Uncomment to inspect memory/OOM behaviour:
+    #   docker inspect shiro --format '{{.State.OOMKilled}} {{.RestartCount}}'
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 2g

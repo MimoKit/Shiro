@@ -118,15 +118,20 @@ const List = () => {
   const { data, isLoading, fetchNextPage } = useInfiniteQuery({
     queryKey: QUERY_KEY,
     queryFn: async ({ pageParam }) => {
-      const { data } = await apiClient.shorthand.getList({
+      // `shorthand.getList()` 返回单键信封 `{"data":[...]}`（数据层会解包成数组本身），
+      // 旧代码 `const { data } = ...` 在解包后拿到 undefined，`data.length` 直接抛
+      // "Cannot read properties of undefined (reading 'length')" → /thinking 500。
+      // 这里兼容「数组本身」与「{data:[...]}」两种形状，并保持条目类型。
+      const res = (await apiClient.shorthand.getList({
         before: pageParam,
         size: FETCH_SIZE,
-      })
+      })) as unknown as RecentlyModel[] | { data: RecentlyModel[] }
+      const list: RecentlyModel[] = Array.isArray(res) ? res : (res?.data ?? [])
 
-      if (data.length < FETCH_SIZE) {
+      if (list.length < FETCH_SIZE) {
         setHasNext(false)
       }
-      return data
+      return list
     },
     enabled: hasNext,
     refetchOnMount: true,

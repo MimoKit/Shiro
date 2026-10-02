@@ -1,26 +1,69 @@
-# Dependency directories
-node_modules/
+# Docker build context filter for Shiro.
+#
+# IMPORTANT: Docker's ignore matching uses moby/patternmatcher, whose patterns
+# are anchored to the CONTEXT ROOT. A bare `node_modules` only matches
+# ./node_modules — it does NOT match apps/web/node_modules. Nested paths must
+# therefore be given an explicit `**/` prefix.
+#
+# This matters a lot here: the host checkout contains
+#   apps/web/.next            (~116 MB of stale build output)
+#   apps/web/node_modules     (~86 symlinks pointing into ../../../node_modules/.pnpm)
+#   packages/types/node_modules
+# If they leak into the context, `COPY . .` in the builder stage overwrites the
+# node_modules that the deps stage just installed with dangling symlinks into a
+# .pnpm directory that was never copied. Verified with a port of
+# moby/patternmatcher: bare patterns reported these as INCLUDED.
 
-# next.js build output
-.next
+# --- dependencies (any depth) ---
+**/node_modules
 
-# typescript build output
-dist
-.env
+# --- build output (any depth) ---
+**/.next
+**/dist
+**/out
+**/tmp
+**/temp
+**/run
 
-# pwa
+# --- env / secrets (any depth) ---
+**/.env
+**/.env.*
+!**/.env.template
+
+# --- pwa / generated service worker ---
 sw.js
 sw.js.*
 workbox-*.js
 workbox-*.js.*
+
+# --- misc dev leftovers ---
 pages/debug.tsx
-/temp
-
 pages/dev
-
 patch/dist
-tmp
-out
 release.zip
+**/*.log
+**/*.tsbuildinfo
 
-run
+# --- VCS / editor ---
+.git
+.gitignore
+.github
+.vscode
+.drone.yml
+renovate.json
+
+# --- docs / meta (not needed to build) ---
+CHANGELOG.md
+ADDITIONAL_TERMS.md
+SAY.md
+NOTE.md
+docs
+
+# NOTE: the following MUST stay in the context — do not add them here:
+#   patches/            pnpm patchedDependencies source; install fails without it
+#   .npmrc              registry + hoist config
+#   pnpm-lock.yaml      resolved dependency graph (also carries overrides/patches)
+#   pnpm-workspace.yaml workspace definition
+#   scripts/            build helper scripts
+#   turbo.json          task pipeline
+#   apps/web/public     static assets copied into the image

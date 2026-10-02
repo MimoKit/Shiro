@@ -8,6 +8,7 @@ import { fetch } from 'ofetch'
 import type { PropsWithChildren } from 'react'
 
 import PKG from '~/../package.json'
+import { defaultThemeConfig } from '~/app.default.theme-config'
 import { ErrorBoundary } from '~/components/common/ErrorBoundary'
 import { Global } from '~/components/common/Global'
 import { HydrationEndDetector } from '~/components/common/HydrationEndDetector'
@@ -56,12 +57,12 @@ export const generateMetadata = async ({
   const { locale } = await params
   const fetchedData = await fetchAggregationData()
 
-  const {
-    seo,
-    url,
-    user,
-    theme: { config },
-  } = fetchedData
+  const { seo, url, user, theme } = fetchedData
+  // theme / theme.config / theme.config.site 任意一层缺失都不应让整页崩溃：
+  // 统一走同一份默认值来源（fetchAggregationData 已 merge defaultThemeConfig，
+  // 但 Core 未返回 theme 时仍需兜底）。
+  const config = theme?.config ?? defaultThemeConfig.config
+  const site = config.site ?? defaultThemeConfig.config.site
 
   const localeMap: Record<string, string> = {
     zh: 'zh_CN',
@@ -79,20 +80,20 @@ export const generateMetadata = async ({
     keywords: seo.keywords?.join(',') || '',
     icons: [
       {
-        url: config.site.favicon,
+        url: site.favicon,
         type: 'image/svg+xml',
         sizes: 'any',
       },
       {
         rel: 'icon',
         type: 'image/svg+xml',
-        url: config.site.favicon,
+        url: site.favicon,
         media: '(prefers-color-scheme: light)',
       },
       {
         rel: 'icon',
         type: 'image/svg+xml',
-        url: config.site.faviconDark || config.site.favicon,
+        url: site.faviconDark || site.favicon,
         media: '(prefers-color-scheme: dark)',
       },
     ],
@@ -183,7 +184,23 @@ export default async function LocaleLayout({ children, params }: Props) {
     )
   }
 
-  const themeConfig = data.theme
+  // theme 可能整体缺失（Core 未返回 / 主题配置为空）：
+  // 旧代码 `themeConfig.config.site.faviconDark` 无兜底，会直接抛
+  // "Cannot read properties of undefined (reading 'site')"。
+  // 这里统一落到根因级默认值，而不是散落的 `?.`。
+  const themeConfig: AppThemeConfig = {
+    ...defaultThemeConfig,
+    ...data.theme,
+    config: {
+      ...defaultThemeConfig.config,
+      ...data.theme?.config,
+      site: {
+        ...defaultThemeConfig.config.site,
+        ...data.theme?.config?.site,
+      },
+    },
+  }
+  const appConfig = themeConfig.config
 
   const headers = new Headers()
 
@@ -202,7 +219,12 @@ export default async function LocaleLayout({ children, params }: Props) {
     { headers },
   )
     .then((res) => res.json())
-    .then((res) => !!res.ok)
+    // Core v14 的响应带 `{ data: ... }` 信封，登录态位于 `res.data.ok`。
+    // 此处的裸 fetch 拿的是**原始响应**（未经过 api-client 归一化），
+    // 旧写法 `!!res.ok` 读的是信封顶层（恒为 undefined）→ 恒 false，
+    // 会让包括站长在内**所有人**都被判为未登录。
+    // 同时兼容 v14（信封内）与旧 Core（顶层）。
+    .then((res) => !!(res?.data?.ok ?? res?.ok))
     .catch(() => false)
 
   return (
@@ -241,7 +263,7 @@ export default async function LocaleLayout({ children, params }: Props) {
                 <WebAppProviders>
                   <AggregationProvider
                     aggregationData={data}
-                    appConfig={themeConfig.config}
+                    appConfig={appConfig}
                   />
                   <div id="root" data-theme>
                     <Root>{children}</Root>

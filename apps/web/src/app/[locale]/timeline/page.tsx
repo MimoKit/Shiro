@@ -1,6 +1,5 @@
 'use client'
 
-import type { TimelineData } from '@mx-space/api-client'
 import { TimelineType } from '@mx-space/api-client'
 import { useQuery } from '@tanstack/react-query'
 import clsx from 'clsx'
@@ -18,8 +17,10 @@ import { BackToTopFAB } from '~/components/ui/fab'
 import { TimelineList } from '~/components/ui/list/TimelineList'
 import { BottomToUpSoftScaleTransitionView } from '~/components/ui/transition'
 import { useRouter } from '~/i18n/navigation'
-import { apiClient } from '~/lib/request'
 import { springScrollToElement } from '~/lib/scroller'
+
+import type { TimelineDataPlain } from './data'
+import { fetchTimeline } from './data'
 
 enum ArticleType {
   Post,
@@ -91,21 +92,20 @@ export default function TimelinePage() {
     note: TimelineType.Note,
   }[type]
 
-  const { data: initialData } = useQuery<TimelineData>({
+  const { data: initialData } = useQuery<TimelineDataPlain>({
     queryKey: ['timeline'],
     enabled: false,
   })
-  const { data, refetch } = useQuery<TimelineData>({
+  const { data, refetch } = useQuery<TimelineDataPlain>({
     queryKey: ['timeline', nextType, year],
     initialData,
+    // 与服务端 layout.tsx 共用同一份规约逻辑，保证 RSC 水合数据与客户端刷新形状一致
     queryFn: async ({ queryKey }) => {
       const [, nextType, year] = queryKey as [string, TimelineType, string]
-      return await apiClient.aggregate
-        .getTimeline({
-          type: nextType,
-          year: +(year || 0) || undefined,
-        })
-        .then((res) => res.data)
+      return await fetchTimeline({
+        type: nextType,
+        year: +(year || 0) || undefined,
+      })
     },
   })
 
@@ -126,13 +126,16 @@ export default function TimelinePage() {
 
   if (!memory) {
     posts.forEach((post) => {
-      const date = new Date(post.created)
+      // createdAt 可能为空或非法：直接 new Date() 会得到 Invalid Date，
+      // 后续 Intl.DateTimeFormat.format() 会抛 RangeError → 整页 500。这里跳过。
+      const date = post.createdAt ? new Date(post.createdAt) : null
+      if (!date || Number.isNaN(date.getTime())) return
       const year = date.getFullYear()
       const data: MapType = {
         title: post.title,
-        meta: [post.category.name, t('timeline_post')],
+        meta: [post.category?.name ?? '', t('timeline_post')].filter(Boolean),
         date,
-        href: `/posts/${post.category.slug}/${post.slug}`,
+        href: `/posts/${post.category?.slug ?? ''}/${post.slug}`,
 
         type: ArticleType.Post,
         id: post.id,
@@ -147,7 +150,8 @@ export default function TimelinePage() {
   notes
     .filter((n) => (memory ? n.bookmark : true))
     .forEach((note) => {
-      const date = new Date(note.created)
+      const date = note.createdAt ? new Date(note.createdAt) : null
+      if (!date || Number.isNaN(date.getTime())) return
       const year = date.getFullYear()
       const data: MapType = {
         title: note.title,

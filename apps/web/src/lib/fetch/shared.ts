@@ -4,6 +4,8 @@ import type { $fetch } from 'ofetch'
 
 import { API_URL } from '~/constants/env'
 
+import { getDataFromResponse, transformResponse } from './normalize'
+
 type FetchType = typeof $fetch
 export const createFetchAdapter = (
   $fetch: FetchType,
@@ -54,7 +56,10 @@ export const createApiClient = (
 ) =>
   createClient(fetchAdapter)(API_URL, {
     controllers: allControllers,
-    getDataFromResponse(response) {
-      return response as any
-    },
+    // 兼容 Core v14：信封解包 + snake_case/语义改名 + 分页合成，
+    // 同时保留 `$serialized` / `$raw`（源码多处依赖）。详见 ./normalize.ts
+    getDataFromResponse,
+    // 归一化已完成命名转换，禁止 api-client 再跑一次默认 camelcaseKeys，
+    // 否则会破坏 `custom_elements` 等要求保留下划线的字段。
+    transformResponse,
   })

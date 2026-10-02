@@ -27,10 +27,14 @@ export const FooterInfo = () => (
 )
 
 const FooterLinkSection = async () => {
-  const { footer } = (await fetchAggregationData()).theme
-  const footerConfig: FooterConfig = footer || {
-    linkSections: defaultLinkSections,
-  }
+  // `theme` 可能整体缺失（Core 未返回 / 主题配置为空）：
+  // 旧写法 `(await fetchAggregationData()).theme` 直接解构会抛
+  // "Cannot destructure property 'footer' of '(intermediate value).theme' as it is undefined"。
+  const { theme } = await fetchAggregationData()
+  const footerConfig: FooterConfig =
+    theme?.footer && Array.isArray(theme.footer.linkSections)
+      ? theme.footer
+      : { ...theme?.footer, linkSections: defaultLinkSections }
 
   return (
     <div className="space-x-0 space-y-3 md:space-x-6 md:space-y-0">
@@ -163,16 +167,19 @@ const PoweredBy = async ({ className }: { className?: string }) => {
 const FooterBottom = async () => {
   const t = await getTranslations('common')
   const data = await fetchAggregationData()
-  const { footer } = data.theme
-  const footerConfig = footer || {}
+  // 同上：theme / theme.footer / footer.otherInfo 任意一层缺失都不应让 Footer 崩掉
+  const footerConfig = data.theme?.footer ?? {}
   const { otherInfo } = footerConfig
   const currentYear = new Date().getFullYear().toString()
-  const { date = currentYear, icp } = otherInfo || {}
+  const { date, icp } = otherInfo || {}
+  // date 可能是缺失、非字符串、或空字符串（默认主题配置里就是 ''）——
+  // 这几种情况都回退到当前年份，避免渲染出 "© " 后面没有年份。
+  const displayDate = typeof date === 'string' && date ? date : currentYear
 
   return (
     <div className="mt-12 space-y-3 text-center md:mt-6 md:text-left">
       <div>
-        <span>© {date.replace('{{now}}', currentYear)} </span>
+        <span>© {displayDate.replace('{{now}}', currentYear)} </span>
         <a href="/">
           <OwnerName />
         </a>

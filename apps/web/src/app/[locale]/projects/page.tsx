@@ -18,8 +18,11 @@ export default function Page() {
   const { data, isLoading } = useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
-      const data = await apiClient.project.getAll()
-      return data.data
+      // `getAll()` 走的是 `/projects/all`，该端点返回单键信封 `{"data":[...]}`，
+      // 会被数据层正确地解包成数组本身（而 `/projects` 返回多键 `{data,meta}` 则保留外层）。
+      // 因此这里兼容两种形状：数组本身 或 `{data:[...]}`。
+      const res: any = await apiClient.project.getAll()
+      return res?.data ?? res
     },
   })
 

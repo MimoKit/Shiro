@@ -84,7 +84,7 @@ const linkCardFetchContext: LinkCardFetchContext = {
     },
     'mx-space': {
       request: async (path) => {
-        const r = await fetch(`/api/v2/${path}`)
+        const r = await fetch(`/api/v3/${path}`)
         return await r.json()
       },
     },

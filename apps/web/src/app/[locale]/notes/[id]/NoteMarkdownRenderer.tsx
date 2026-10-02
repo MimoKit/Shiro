@@ -14,15 +14,24 @@ const MarkdownRenderers: Partial<MarkdownToJSX.PartialRules> = {
 }
 
 export const NoteMarkdownRenderer = () => {
+  const content = useCurrentNoteDataSelector((data) => data?.data.content)
   const text = useCurrentNoteDataSelector((data) => data?.data.text)
-  if (!text) return null
+
+  // 与文章页同理：content 才是 Markdown 正文，text 是纯文本摘要。
+  // 手记目前两者内容一致，但 content_format=markdown 时以 content 为准更稳妥。
+  const markdown =
+    (typeof content === 'string' && content) ||
+    (typeof text === 'string' && text) ||
+    ''
+
+  if (!markdown) return null
   return (
     <MainMarkdown
       className="mt-10"
       allowsScript
       renderers={MarkdownRenderers}
       variant="note"
-      value={text}
+      value={markdown}
     />
   )
 }

@@ -19,7 +19,7 @@ import {
 } from '~/components/ui/transition'
 import { softBouncePreset } from '~/constants/spring'
 import { clsxm } from '~/lib/helper'
-import { noopObj } from '~/lib/noop'
+import { noopArr, noopObj } from '~/lib/noop'
 import {
   useAggregationSelector,
   useAppConfigSelector,
@@ -27,16 +27,44 @@ import {
 
 import { TwoColumnLayout } from './TwoColumnLayout'
 
+/**
+ * Hero 的根因级兜底：`theme.config.hero` 可能整体缺失（Core 版本差异/主题配置为空），
+ * 此时 `config.hero` 为 undefined，旧的 `useAppConfigSelector(...)!` 裸断言会直接崩。
+ * 这里提供内置默认值，保证任意配置缺失时首页仍可渲染。
+ */
+const DEFAULT_HERO_TITLE_TEMPLATE: TemplateItem[] = [
+  {
+    type: 'h1',
+    text: 'Hi, I am ',
+    class: 'font-light text-4xl',
+  },
+]
+
 export const Hero = () => {
   const tCommon = useTranslations('common')
-  const { title, description } = useAppConfigSelector((config) => ({
-    ...config.hero,
-  }))!
+  const hero = useAppConfigSelector((config) => config.hero) ?? undefined
+  const description =
+    typeof hero?.description === 'string' ? hero.description : ''
+
+  // `title.template` 缺失或非数组时回退到内置模板，避免 .reduce / .map 抛错
+  const titleTemplate = Array.isArray(hero?.title?.template)
+    ? hero.title.template
+    : noopArr
+
   const siteOwner = useAggregationSelector((agg) => agg.user)
   const { avatar, socialIds } = siteOwner || {}
 
+  // 站点昵称（aggregation.user.name），用于 hero 模板为空时兜底展示
+  const ownerName = siteOwner?.name
+
+  const templates: TemplateItem[] = titleTemplate.length
+    ? titleTemplate
+    : ownerName
+      ? [{ type: 'h1', text: ownerName, class: 'font-medium text-4xl' }]
+      : DEFAULT_HERO_TITLE_TEMPLATE
+
   const titleAnimateD =
-    title.template.reduce((acc, cur) => acc + (cur.text?.length || 0), 0) * 50
+    templates.reduce((acc, cur) => acc + (cur.text?.length || 0), 0) * 50
   return (
     <div className="mx-auto mt-20 min-w-0 max-w-7xl overflow-hidden lg:mt-[-4.5rem] lg:h-dvh lg:min-h-[800px] lg:px-8">
       <TwoColumnLayout
@@ -50,9 +78,15 @@ export const Hero = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={softBouncePreset}
           >
-            {title.template.map((t, i) => {
+            {templates.map((t, i) => {
               const { type } = t
-              const prevAllTextLength = title.template
+              // 模板项来自远端主题配置，type 可能是任意字符串/缺失。
+              // createElement(undefined) 会抛 "Element type is invalid"，
+              // 这里只接受合法的 HTML 标签名（字母开头），否则跳过该项。
+              if (typeof type !== 'string' || !/^[a-z][a-z0-9]*$/i.test(type)) {
+                return null
+              }
+              const prevAllTextLength = templates
                 .slice(0, i)
                 .reduce((acc, cur) => acc + (cur.text?.length || 0), 0)
               return createElement(
@@ -100,16 +134,18 @@ export const Hero = () => {
         <div
           className={clsx('lg:size-[300px]', 'size-[200px]', 'mt-24 lg:mt-0')}
         >
-          <Image
-            height={300}
-            width={300}
-            src={avatar!}
-            alt={tCommon('aria_site_owner_avatar')}
-            className={clsxm(
-              'aspect-square rounded-full border border-slate-200 dark:border-neutral-800',
-              'w-full',
-            )}
-          />
+          {avatar ? (
+            <Image
+              height={300}
+              width={300}
+              src={avatar}
+              alt={tCommon('aria_site_owner_avatar')}
+              className={clsxm(
+                'aspect-square rounded-full border border-slate-200 dark:border-neutral-800',
+                'w-full',
+              )}
+            />
+          ) : null}
         </div>
 
         <m.div
@@ -134,9 +170,9 @@ export const Hero = () => {
 
 const FootHitokoto = () => {
   const t = useTranslations('home')
-  const { custom, random } = useAppConfigSelector(
-    (config) => config.hero.hitokoto || {},
-  )!
+  // `config.hero` 可能整体缺失：选择器会抛错并被吞成 null，旧的 `!` 断言随即在解构 null 时崩溃
+  const { custom, random } =
+    useAppConfigSelector((config) => config.hero?.hitokoto || {}) ?? {}
 
   if (random) return <RemoteHitokoto />
   return (
