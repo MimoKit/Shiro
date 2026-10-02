@@ -35,11 +35,22 @@ export const post = {
         // Core v14 的详情响应是 `{ data: <post>, meta: {...} }`，归一化对
         // 多键信封保留外层，故取 `$serialized.data`；旧 Core 无信封时回退到
         // `$serialized` 自身。
-        const serialized = data.$serialized as
-          | (PostWithTranslation & { data?: PostWithTranslation })
-          | undefined
+        const serialized = data.$serialized as any
+        const postObj = serialized?.data ?? serialized
 
-        return (serialized?.data ?? serialized) as PostWithTranslation
+        if (postObj && serialized?.meta) {
+          const {translation} = serialized.meta
+          const transArticle =
+            translation?.article ||
+            (translation && typeof translation === 'object'
+              ? (Object.values(translation)[0] as any)?.article
+              : undefined)
+          if (transArticle) {
+            postObj.translationMeta = transArticle
+          }
+        }
+
+        return postObj as PostWithTranslation
       },
     }),
 }
