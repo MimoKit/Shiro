@@ -56,6 +56,8 @@ COPY packages/types/package.json ./packages/types/package.json
 # ("Lockfile") for how to switch back to --frozen-lockfile once upstream fixes it.
 ENV NODE_ENV=development
 RUN pnpm install --no-frozen-lockfile --prod=false
+# Fix Next.js CSS compiler (LightningCSS) failing on ::highlight() pseudo-element in @haklex/rich-editor
+RUN find node_modules -name "rich-editor.css" -exec sed -i -E 's/::highlight\([^)]+\)/.dummy-highlight/g' {} +
 
 # ---------------------------------------------------------------------------
 # builder: full source + production build
