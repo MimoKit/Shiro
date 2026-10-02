@@ -42,11 +42,12 @@ export async function GET() {
   const { title, description } = agg.seo
 
   const now = new Date()
-  const custom_elements = get(
-    agg.$raw.theme as AppConfig,
-    'config.module.rss.custom_elements',
-  )
-  const noRSS = get(agg.$raw.theme as AppConfig, 'config.module.rss.noRSS')
+  const theme = (agg.theme ||
+    (agg as any).$raw?.data?.theme ||
+    (agg as any).$raw?.theme ||
+    {}) as AppThemeConfig
+  const custom_elements = get(theme, 'config.module.rss.custom_elements')
+  const noRSS = get(theme, 'config.module.rss.noRSS')
 
   const followChallengeIndex = custom_elements
     ? custom_elements.findIndex((item: any) => item.follow_challenge)
@@ -69,9 +70,8 @@ export async function GET() {
     ]
   }
 
-  const imageUrl = agg.theme?.config?.site?.favicon.startsWith('/')
-    ? `${url}${agg.theme?.config?.site?.favicon}`
-    : agg.theme?.config?.site?.favicon
+  const favicon = theme?.config?.site?.favicon
+  const imageUrl = favicon?.startsWith('/') ? `${url}${favicon}` : favicon
 
   const feed = new RSS({
     title,
