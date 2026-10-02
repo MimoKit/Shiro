@@ -152,31 +152,38 @@ class SocketWorker {
           break
         }
         case 'message': {
-          const typedPayload = payload as string | Record<'type' | 'data', any>
+          const typedPayload = payload as
+            | string
+            | Record<'type' | 'data' | 'rawEvent', any>
           if (typeof typedPayload !== 'string') {
             return this.handleEvent(
               typedPayload.type,
               camelcaseKeys(typedPayload.data),
+              typedPayload.rawEvent,
             )
           }
-          const { data, type } = JSON.parse(typedPayload) as {
+          const { data, type, rawEvent } = JSON.parse(typedPayload) as {
             data: any
             type: EventTypes
+            rawEvent?: string
           }
-          this.handleEvent(type, camelcaseKeys(data))
+          this.handleEvent(type, camelcaseKeys(data), rawEvent)
         }
       }
     }
   }
 
   prepare(worker: SocketWorkerTransport, lang?: string) {
-    const gatewayUrlWithoutTrailingSlash = GATEWAY_URL.replace(/\/$/, '')
+    const rawGatewayUrl =
+      GATEWAY_URL ||
+      (typeof window !== 'undefined' ? window.location.origin : '')
+    const gatewayUrlWithoutTrailingSlash = rawGatewayUrl.replace(/\/$/, '')
     this.bindMessageHandler(worker)
     worker.postMessage({
       type: 'config',
 
       payload: {
-        url: `${gatewayUrlWithoutTrailingSlash}/web`,
+        url: `${gatewayUrlWithoutTrailingSlash}/ws/web`,
         socket_session_id: getSocketWebSessionId(),
         lang,
       },
@@ -188,12 +195,15 @@ class SocketWorker {
       type: 'init',
     })
   }
-  handleEvent(type: EventTypes, data: any) {
+  handleEvent(type: EventTypes | string, data: any, rawEvent?: string) {
     if (isDev) {
-      console.info(data)
+      console.info('[ws event]', type, data)
     }
 
     window.dispatchEvent(new CustomEvent(type, { detail: data }))
+    if (rawEvent && rawEvent !== type) {
+      window.dispatchEvent(new CustomEvent(rawEvent, { detail: data }))
+    }
 
     eventHandler(type, data, this.router)
   }
