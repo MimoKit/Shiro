@@ -114,7 +114,9 @@ const buildPagination = (
   if (!source) return undefined
 
   const currentPage = Number(source.currentPage ?? source.page ?? 1) || 1
-  const totalPage = Number(source.totalPage ?? source.totalPages ?? 1) || 1
+  const totalPage =
+    Number(source.totalPage ?? source.totalPages ?? source.total_pages ?? 1) ||
+    1
   const size = Number(source.size ?? 10) || 10
   const total = Number(source.total ?? 0) || 0
 
@@ -154,7 +156,18 @@ export const normalizeResponse = (payload: unknown): unknown => {
   if (!isPlainObject(payload)) return payload
 
   if (isBareEnvelope(payload)) {
-    return normalizeValue(payload.data)
+    const inner = normalizeValue(payload.data)
+    // v14 个别接口（如评论列表）是双层信封：外层 {data} 里再包一层
+    // {data, meta}。解开外层后内层与多键信封同形，需补合成分页，
+    // 否则页面读 lastPage.pagination 恒为 undefined、翻页即崩。
+    if (isPlainObject(inner)) {
+      const innerMeta = isPlainObject(inner.meta) ? inner.meta : undefined
+      const pagination = buildPagination(innerMeta, inner.pagination)
+      if (pagination && inner.pagination === undefined) {
+        inner.pagination = pagination
+      }
+    }
+    return inner
   }
 
   const normalized = normalizeValue(payload) as Record<string, unknown>

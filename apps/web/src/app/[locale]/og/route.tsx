@@ -2,19 +2,11 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import type { Image } from '@mx-space/api-client'
-import {
-  AggregateController,
-  createClient,
-  NoteController,
-  PageController,
-  PostController,
-} from '@mx-space/api-client'
-import { fetchAdaptor } from '@mx-space/api-client/dist/adaptors/fetch'
 import { ImageResponse } from 'next/og'
 import type { NextRequest } from 'next/server'
 
-import { API_URL } from '~/constants/env'
 import { defaultLocale } from '~/i18n/config'
+import { apiClient } from '~/lib/request'
 import zhMessages from '~/messages/zh/common.json'
 
 const messagesMap = {
@@ -22,14 +14,9 @@ const messagesMap = {
   ja: () => import('~/messages/ja/common.json').then((m) => m.default),
 } as const
 
-const apiClient = createClient(fetchAdaptor)(API_URL, {
-  controllers: [
-    PostController,
-    NoteController,
-    PageController,
-    AggregateController,
-  ],
-})
+// 必须用站内 apiClient（lib/fetch/shared.ts 注入了 Core v14 归一化）。
+// 之前本文件自建了一个默认 client：默认管线不解 v14 的 {data, meta} 信封，
+// 聚合读不到 user/seo/theme、文章读不到 title，OG 接口恒 500/400。
 
 export const runtime = 'nodejs'
 
@@ -132,13 +119,19 @@ export const GET = async (
         const { category, slug } = data
         document = await apiClient.post
           .getPost(category, slug, { lang: locale })
-          .then((r) => ({
-            title: r.title,
-            subtitle: r.category.name,
-            meta: r.meta,
-            images: r.images,
-            id: r.id,
-          }))
+          .then((r) => {
+            // v14 详情是 {data, meta} 信封，与 queries/definition/post.ts
+            // 同样从 $serialized 解包文章本体
+            const s = (r as any).$serialized
+            const postObj = s?.data ?? s
+            return {
+              title: postObj.title,
+              subtitle: postObj.category.name,
+              meta: postObj.meta,
+              images: postObj.images,
+              id: postObj.id,
+            }
+          })
         break
       }
 
@@ -146,24 +139,32 @@ export const GET = async (
         const { nid } = data
         document = await apiClient.note
           .getNoteByNid(+nid, { lang: locale })
-          .then((r) => ({
-            title: r.data.title,
-            subtitle: messages.nav_notes,
-            meta: r.data.meta,
-            images: r.data.images,
-            id: r.data.id,
-          }))
+          .then((r) => {
+            const s = (r as any).$serialized
+            const noteObj = s?.data ?? s
+            return {
+              title: noteObj.title,
+              subtitle: messages.nav_notes,
+              meta: noteObj.meta,
+              images: noteObj.images,
+              id: noteObj.id,
+            }
+          })
         break
       }
       case 'page': {
         const { slug } = data
-        document = await apiClient.page.getBySlug(slug).then((data) => ({
-          title: data.title,
-          subtitle: data.subtitle || '',
-          meta: data.meta,
-          images: data.images,
-          id: data.id,
-        }))
+        document = await apiClient.page.getBySlug(slug).then((r) => {
+          const s = (r as any).$serialized
+          const pageObj = s?.data ?? s
+          return {
+            title: pageObj.title,
+            subtitle: pageObj.subtitle || '',
+            meta: pageObj.meta,
+            images: pageObj.images,
+            id: pageObj.id,
+          }
+        })
         break
       }
     }

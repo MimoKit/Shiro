@@ -24,6 +24,7 @@ import { useCallback, useMemo } from 'react'
 import { getWebUrl } from '~/atoms'
 import { useModalStack } from '~/components/ui/modal/stacked/provider'
 import { useIsDark } from '~/hooks/common/use-is-dark'
+import { getDataFromResponse } from '~/lib/fetch/normalize'
 import { fetchGitHubApi } from '~/lib/github'
 
 const fallbackSansFont =
@@ -85,7 +86,10 @@ const linkCardFetchContext: LinkCardFetchContext = {
     'mx-space': {
       request: async (path) => {
         const r = await fetch(`/api/v3/${path}`)
-        return await r.json()
+        // 不能把 Core v14 的原始信封（{data, meta} + snake_case）直喂给
+        // 插件：先过站内归一化，再取详情本体，与本地 link-card 插件同口径
+        const normalized: any = getDataFromResponse(await r.json())
+        return normalized?.data ?? normalized
       },
     },
   },

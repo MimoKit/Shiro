@@ -13,9 +13,19 @@ import { PostMetaBar } from './PostMetaBar'
 export const PostLooseItem = memo<{ data: PostListItem }>(
   function PostLooseItem({ data }) {
     const text = data.text ?? ''
+    // 先剥离全文再截断：短文本分支之前完全不剥离，正文里的图片/链接
+    // 语法会原样露在卡片摘要里；长文本先截后剥则会在语法中间截断、
+    // 剥不干净。统一成先剥后截。
+    const strippedText = RemoveMarkdown(text)
     const displayText =
-      text.length > 300 ? `${RemoveMarkdown(text.slice(0, 300))}...` : text
-    const hasImage = data.images?.length > 0 && data.images[0].src
+      strippedText.length > 300
+        ? `${strippedText.slice(0, 300)}...`
+        : strippedText
+    // 封面优先用 meta.cover（与详情页、首页 ld+json 的既有约定一致），
+    // 正文提取的第一张图只兜底——否则文末的正文图会被当成卡片封面
+    const hasImage =
+      (data as any).meta?.cover ||
+      (data.images?.length > 0 && data.images[0].src)
     const categorySlug = data.category?.slug
     const postLink = `/posts/${categorySlug}/${data.slug}`
 

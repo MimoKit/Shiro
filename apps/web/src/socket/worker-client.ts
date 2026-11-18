@@ -1,4 +1,3 @@
-import { simpleCamelcaseKeys as camelcaseKeys } from '@mx-space/api-client'
 import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime'
 
 import { getSocketWebSessionId } from '~/atoms/hooks/socket'
@@ -6,6 +5,7 @@ import { setSocketIsConnect } from '~/atoms/socket'
 import { GATEWAY_URL } from '~/constants/env'
 import { SocketConnectedEvent, SocketDisconnectedEvent } from '~/events'
 import { isDev, isServerSide } from '~/lib/env'
+import { normalizeResponse } from '~/lib/fetch/normalize'
 import type { EventTypes, SocketEmitEnum } from '~/types/events'
 
 import { eventHandler } from './handler'
@@ -158,7 +158,10 @@ class SocketWorker {
           if (typeof typedPayload !== 'string') {
             return this.handleEvent(
               typedPayload.type,
-              camelcaseKeys(typedPayload.data),
+              // WS 载荷是 v14 的 snake_case 模型：必须走站内归一化
+              // （语义别名 created_at→created、read/like_count 合成 count），
+              // 只过通用驼峰会让日期与计数永远停在旧值
+              normalizeResponse(typedPayload.data) as any,
               typedPayload.rawEvent,
             )
           }
@@ -167,7 +170,7 @@ class SocketWorker {
             type: EventTypes
             rawEvent?: string
           }
-          this.handleEvent(type, camelcaseKeys(data), rawEvent)
+          this.handleEvent(type, normalizeResponse(data) as any, rawEvent)
         }
       }
     }

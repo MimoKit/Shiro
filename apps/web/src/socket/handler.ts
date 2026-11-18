@@ -5,6 +5,7 @@ import { isDev } from '~/lib/env'
 
 import { articleReadCountHandlers } from './handlers/article-read-count'
 import { commentHandlers } from './handlers/comment'
+import { contentRefreshHandlers } from './handlers/content-refresh'
 import { noteHandlers } from './handlers/note'
 import { pageHandlers } from './handlers/page'
 import { postHandlers } from './handlers/post'
@@ -20,6 +21,7 @@ const handlerMap: Record<string, EventHandler> = {
   ...sayHandlers,
   ...commentHandlers,
   ...articleReadCountHandlers,
+  ...contentRefreshHandlers,
 }
 
 for (const event of visitorEvents) {

@@ -60,11 +60,16 @@ export const mxSpacePlugin: LinkCardPlugin = {
 
     if (type === 'posts') {
       const [cate, slug] = rest
-      data = await apiClient.post.getPost(cate, slug)
+      const res = await apiClient.post.getPost(cate, slug)
+      // Core v14 详情是 {data, meta} 信封，必须先从 $serialized 解包，
+      // 否则 title/summary/cover/images 全部读空（与 post.ts 同一处理）
+      const s = (res as any).$serialized
+      data = s?.data ?? s
     } else if (type === 'notes') {
       const [nid] = rest
       const response = await apiClient.note.getNoteById(+nid)
-      data = response.data
+      const s = (response as any).$serialized
+      data = s?.data ?? s ?? response.data
     }
 
     const coverImage = data.cover || data.meta?.cover

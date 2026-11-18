@@ -121,7 +121,13 @@ export const generateMetadata = async (props: {
   }
 }
 
-const PostPage = ({ data }: { data: PostWithTranslation }) => {
+const PostPage = ({
+  data,
+  locale,
+}: {
+  data: PostWithTranslation
+  locale?: string
+}) => {
   const { id } = data
   return (
     <div className="relative w-full min-w-0">
@@ -143,11 +149,16 @@ const PostPage = ({ data }: { data: PostWithTranslation }) => {
             sourceLang={data.translationMeta?.sourceLang}
           />
 
-          {/* AI 智能摘要卡片 (Yohaku 风格) */}
-          <AISummary summary={data.summary} />
+          {/* AI 智能摘要卡片 (Yohaku 风格) —— 取 meta.summary 的 AI 摘要，
+              data.summary 是手写摘要，不能混用 */}
+          <AISummary summary={(data as any).aiSummary} />
 
           {/* AI 精读手记 (余白伴读可折叠卡片) */}
-          <AIInsights id={id!} />
+          <AIInsights
+            id={id!}
+            lang={locale}
+            hasInsights={(data as any).hasInsightsInLocale}
+          />
 
           <PostOutdate />
 
@@ -222,7 +233,7 @@ export default definePrerenderPage<PageParams>()<PostDataResult>({
           className="relative flex min-h-[120px] grid-cols-[auto_200px] lg:grid"
         >
           <BottomToUpTransitionView lcpOptimization className="min-w-0">
-            <PostPage data={data} />
+            <PostPage data={data} locale={params.locale} />
 
             <BottomToUpSoftScaleTransitionView delay={500}>
               <CommentAreaRootLazy

@@ -21,7 +21,9 @@ export const useAuthProviders = () => {
         .get<{
           data: AuthSocialProviders[]
         }>()
-        .then((res) => res.data),
+        // /auth/providers 是单键信封，管线 A 已解包，res 本身就是数组，
+        // 读 res.data 恒 undefined（配了 OAuth 登录按钮也不会出现）
+        .then((res) => ((res as any).data ?? res) as AuthSocialProviders[]),
     refetchOnMount: 'always',
     meta: {
       persist: true,

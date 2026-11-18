@@ -19,12 +19,15 @@ import {
   NoteMetaBar,
   NotePasswordForm,
 } from '~/components/modules/note'
+import { NoteAISummary } from '~/components/modules/note/NoteAISummary'
 import {
   NoteBanner,
   NoteRootBanner,
 } from '~/components/modules/note/NoteBanner'
 import { NoteFontSettingFab } from '~/components/modules/note/NoteFontFab'
 import { NoteMainContainer } from '~/components/modules/note/NoteMainContainer'
+import { AIInsights } from '~/components/modules/post/AIInsights'
+import { AITranslationBanner } from '~/components/modules/post/AITranslationBanner'
 import { BanCopyWrapper } from '~/components/modules/shared/BanCopyWrapper'
 import { ReadIndicatorForMobile } from '~/components/modules/shared/ReadIndicator'
 import { TocFAB } from '~/components/modules/toc/TocFAB'
@@ -70,9 +73,11 @@ export const dynamic = 'force-dynamic'
 function PageInner({
   data,
   privateLoginOnlyMessage,
+  locale,
 }: {
   data: NoteWithTranslation
   privateLoginOnlyMessage: string
+  locale?: string
 }) {
   return (
     <>
@@ -95,6 +100,22 @@ function PageInner({
       </div>
 
       <NoteHideIfSecret>
+        {/* AI 多语言翻译便捷切换条 */}
+        <AITranslationBanner
+          id={data.id}
+          sourceLang={(data as any).translationMeta?.sourceLang}
+        />
+
+        {/* AI 智能摘要卡片（手记需单独拉取，见 NoteAISummary） */}
+        <NoteAISummary id={data.id} lang={locale} />
+
+        {/* AI 精读手记 */}
+        <AIInsights
+          id={data.id}
+          lang={locale}
+          hasInsights={(data as any).hasInsightsInLocale}
+        />
+
         <WrappedElementProvider eoaDetect>
           <ReadIndicatorForMobile />
           <NoteMarkdownImageRecordProvider>
@@ -239,6 +260,7 @@ export default definePrerenderPage<NoteDetailPageParams>()<NoteDataResult>({
             <PageInner
               data={data.data}
               privateLoginOnlyMessage={t('private_login_only')}
+              locale={locale}
             />
           </Paper>
           <BottomToUpSoftScaleTransitionView delay={500}>

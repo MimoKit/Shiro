@@ -9,7 +9,12 @@ import { definePrerenderPage } from '~/lib/request.server'
 import { routeBuilder, Routes } from '~/lib/route-builder'
 
 export default definePrerenderPage()({
-  fetcher: async () => (await apiClient.topic.getAll()).data,
+  fetcher: async () => {
+    // 管线 A 已把单键信封解包成数组本身，不能再读 .data（恒 undefined）
+    const res: any = await apiClient.topic.getAll()
+    const list = res?.data ?? res
+    return Array.isArray(list) ? list : []
+  },
   Component: ({ data }) => (
     <BottomToUpSoftScaleTransitionView>
       <header className="prose">

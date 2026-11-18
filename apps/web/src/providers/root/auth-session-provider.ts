@@ -1,4 +1,3 @@
-import { simpleCamelcaseKeys } from '@mx-space/api-client'
 import { useQuery } from '@tanstack/react-query'
 import { nanoid } from 'nanoid'
 import { useEffect } from 'react'
@@ -27,7 +26,9 @@ export const AuthSessionProvider: Component = ({ children }) => {
       setSessionReader(null)
       return
     }
-    const transformedData = simpleCamelcaseKeys(session)
+    // session 已经过管线 A 归一化，不要再套 simpleCamelcaseKeys 二次转换：
+    // normalize 明确禁止（会改坏保留下划线的字段与带下划线的 map 键）
+    const transformedData = session as any
 
     setSessionReader(transformedData)
     if (transformedData.role === 'owner') {

@@ -35,7 +35,21 @@ export const AITranslationBanner = memo(
         )
         if (!res.ok) return []
         const json = await res.json()
-        return (json?.data || []) as string[]
+        // data 的形状不写死成 string[]：字符串数组 / {languages:[...]} /
+        // 对象数组（{lang|code|language}）都接住，避免形状一变就抛错崩溃
+        const raw = json?.data
+        const list: unknown[] = Array.isArray(raw)
+          ? raw
+          : Array.isArray((raw as any)?.languages)
+            ? (raw as any).languages
+            : []
+        return list
+          .map((item: any) =>
+            typeof item === 'string'
+              ? item
+              : (item?.lang ?? item?.code ?? item?.language),
+          )
+          .filter((x): x is string => typeof x === 'string' && x.length > 0)
       },
       staleTime: 1000 * 60 * 30,
     })
@@ -51,7 +65,7 @@ export const AITranslationBanner = memo(
       const segments = pathname.split('/').filter(Boolean)
       if (['zh', 'ja', 'en', 'ko'].includes(segments[0])) {
         segments[0] = targetLang
-        newPath = `/${  segments.join('/')}`
+        newPath = `/${segments.join('/')}`
       } else {
         newPath = `/${targetLang}${pathname}`
       }

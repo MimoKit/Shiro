@@ -18,9 +18,7 @@ import {
 
 import { useIsOwnerLogged } from '~/atoms/hooks/owner'
 import { EmptyIcon } from '~/components/icons/empty'
-import { MotionButtonBase } from '~/components/ui/button'
 import { FABPortable } from '~/components/ui/fab'
-import { FloatPopover } from '~/components/ui/float-popover'
 import { microDampingPreset } from '~/constants/spring'
 import useDebounceValue from '~/hooks/common/use-debounce-value'
 import { useIsClient } from '~/hooks/common/use-is-client'
@@ -127,7 +125,9 @@ const SearchPanelImpl = () => {
       if (!keyword) {
         return
       }
-      return apiClient.search.proxy('algolia').get({
+      // Core v14 已没有 /search/algolia 这类带类型段的端点（恒 400
+      // INVALID_SEARCH_TYPE）；搜索走无类型段的 /search?keyword=
+      return apiClient.proxy('search').get({
         params: {
           keyword,
         },
@@ -135,11 +135,14 @@ const SearchPanelImpl = () => {
     },
     select: useCallback(
       (data: any) => {
-        if (!data?.data) {
+        // v14 归一化对单键信封会直接解包成数组，对多键信封保留外层，
+        // 两种形状都接住，否则搜索会静默无结果
+        const items = Array.isArray(data) ? data : data?.data
+        if (!items) {
           return
         }
 
-        const _list: SearchListType[] = data?.data.map((item: any) => {
+        const _list: SearchListType[] = items.map((item: any) => {
           switch (item.type) {
             case 'post': {
               return {
@@ -294,25 +297,9 @@ const SearchPanelImpl = () => {
       </div>
 
       <div className="flex shrink-0 items-center justify-between px-4 py-2">
-        {isLogged ? (
-          <MotionButtonBase
-            onClick={() => {
-              window.open(
-                apiClient.search.proxy('algolia')('import-json').toString(true),
-              )
-            }}
-          >
-            <FloatPopover
-              mobileAsSheet
-              type="tooltip"
-              triggerElement={<i className="i-mingcute-download-2-line" />}
-            >
-              {t('search_download_index')}
-            </FloatPopover>
-          </MotionButtonBase>
-        ) : (
-          <div />
-        )}
+        {/* 原「下载索引」按钮指向 v10 的 /search/algolia/import-json，
+            v14 已无此路径（点了必 400），移除这个假入口 */}
+        <div />
         <a
           href="https://www.algolia.com"
           target="_blank"

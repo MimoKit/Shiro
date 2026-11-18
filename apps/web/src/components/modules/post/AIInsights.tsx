@@ -12,25 +12,41 @@ import { clsxm } from '~/lib/helper'
 interface AIInsightsProps {
   id: string
   lang?: string
+  /**
+   * 来自详情响应 meta.insights（has_in_locale）。
+   * 明确为 false 时不发请求、直接显示占位；undefined 时照常请求。
+   */
+  hasInsights?: boolean
   className?: string
 }
 
-export const AIInsights = ({ id, lang = 'zh', className }: AIInsightsProps) => {
+export const AIInsights = ({
+  id,
+  lang = 'zh',
+  hasInsights,
+  className,
+}: AIInsightsProps) => {
   const t = useTranslations('common')
   const [isOpen, setIsOpen] = useState(false)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['ai-insights', id, lang],
     queryFn: async () => {
       const res = await fetch(
         `${API_URL}/ai/insights/article/${id}?lang=${lang}`,
       )
-      if (!res.ok) return null
+      // 只有 404 才是「没生成」；5xx / 网络错误 / 登录失效等失败必须抛错，
+      // 不能吞成 null —— 否则一次瞬时失败会被当成「暂未生成」，
+      // 再被 staleTime 焊住，出现「后台有、点进去没有」。
+      if (res.status === 404) return null
+      if (!res.ok) throw new Error(`insights request failed: ${res.status}`)
       const json = await res.json()
-      return json?.data?.content as string | undefined
+      return (json?.data?.content as string | undefined) ?? null
     },
-    staleTime: 1000 * 60 * 30, // 30 mins
-    enabled: isOpen, // Only fetch when expanded
+    // 有内容缓存 30 分钟；空结果不缓存，下次展开重新查询
+    staleTime: (query) => (query.state.data ? 1000 * 60 * 30 : 0),
+    retry: 2,
+    enabled: isOpen && hasInsights !== false, // Only fetch when expanded
   })
 
   return (
@@ -80,6 +96,17 @@ export const AIInsights = ({ id, lang = 'zh', className }: AIInsightsProps) => {
             <div className="flex items-center justify-center py-6 text-xs text-neutral-400">
               <i className="i-mingcute-loading-line mr-2 animate-spin text-base" />
               正在提取精读要点...
+            </div>
+          ) : isError ? (
+            <div className="py-4 text-center text-xs text-neutral-400">
+              <p>精读加载失败。</p>
+              <button
+                type="button"
+                onClick={() => refetch()}
+                className="mt-2 text-accent transition-opacity hover:opacity-80"
+              >
+                点此重试
+              </button>
             </div>
           ) : data ? (
             <div className="prose prose-sm dark:prose-invert max-w-none text-[13.5px] leading-relaxed">

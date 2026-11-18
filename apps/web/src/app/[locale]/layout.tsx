@@ -125,7 +125,11 @@ export const generateMetadata = async ({
       },
     },
     twitter: {
-      creator: `@${user.socialIds?.twitter || user.socialIds?.x || '__oQuery'}`,
+      // v14 聚合 user 已不下发 socialIds，原兜底 '__oQuery' 是假值，改为缺失即不输出
+      creator:
+        user.socialIds?.twitter || user.socialIds?.x
+          ? `@${user.socialIds?.twitter || user.socialIds?.x}`
+          : undefined,
       card: 'summary_large_image',
       title: seo.title,
       description: seo.description,

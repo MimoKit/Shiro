@@ -14,6 +14,9 @@ export default async function Page(props: {
 }) {
   const params = await props.params
   const data = await apiClient.recently.getById(params.id)
+  // v14 详情若是 {data, meta} 多键信封先解包（单键时回退本体）
+  const serialized = data.$serialized as any
+  const item = serialized?.data ?? serialized
 
   return (
     <div>
@@ -45,7 +48,7 @@ export default async function Page(props: {
             返回
           </Link>
         </MotionButtonBase>
-        <ThinkingItem item={data.$serialized} />
+        <ThinkingItem item={item} />
 
         {data.allowComment && (
           <Suspense>

@@ -8,7 +8,6 @@ import type {
   PageModel,
   PostModel,
 } from '@mx-space/api-client'
-import { simpleCamelcaseKeys } from '@mx-space/api-client'
 import { clsx } from 'clsx'
 import { useIsomorphicLayoutEffect } from 'foxact/use-isomorphic-layout-effect'
 import { atom, useAtomValue } from 'jotai'
@@ -20,6 +19,7 @@ import { NoteMetaBar, NoteRootBanner } from '~/components/modules/note'
 import { NoteHeadCover } from '~/components/modules/note/NoteHeadCover'
 import { ArticleRightAside } from '~/components/modules/shared/ArticleRightAside'
 import { ReadIndicatorForMobile } from '~/components/modules/shared/ReadIndicator'
+import { normalizeResponse } from '~/lib/fetch/normalize'
 import { jotaiStore } from '~/lib/store'
 import { isNoteModel, isPageModel, isPostModel } from '~/lib/url-builder'
 import {
@@ -90,7 +90,7 @@ export default function PreviewPage() {
         if (!data) return
         const parsedData = safeParse(data)
         if (!parsedData) return
-        jotaiStore.set(previewDataAtom, simpleCamelcaseKeys(parsedData))
+        jotaiStore.set(previewDataAtom, normalizeResponse(parsedData) as any)
       }
     }
     window.addEventListener('storage', handler)
@@ -101,7 +101,7 @@ export default function PreviewPage() {
       const parsedData = safeParse(exist)
 
       if (!parsedData) return
-      jotaiStore.set(previewDataAtom, simpleCamelcaseKeys(parsedData))
+      jotaiStore.set(previewDataAtom, normalizeResponse(parsedData) as any)
     }
 
     return () => {
@@ -146,7 +146,10 @@ export default function PreviewPage() {
         )
           return
 
-        jotaiStore.set(previewDataAtom, simpleCamelcaseKeys(parsedData.data))
+        jotaiStore.set(
+          previewDataAtom,
+          normalizeResponse(parsedData.data) as any,
+        )
       }
     }
     window.addEventListener('message', handler)
@@ -203,12 +206,7 @@ const PostPreview = () => {
       <CurrentPostDataAtomProvider overrideAtom={overrideAtom}>
         <CurrentPostDataProvider data={data} />
         <div className="relative flex min-h-[120px] grid-cols-[auto_200px] lg:grid">
-          <article
-            className={clsx(
-              'relative w-full min-w-0',
-               'prose',
-            )}
-          >
+          <article className={clsx('relative w-full min-w-0', 'prose')}>
             <header className="mb-8">
               <h1 className="text-balance text-center">{data.title}</h1>
 
@@ -304,9 +302,7 @@ const PagePreview = () => {
       <CurrentPageDataAtomProvider overrideAtom={overrideAtom}>
         <CurrentPageDataProvider data={data} />
         <div className="relative w-full min-w-0">
-          <article
-            className={'prose'}
-          >
+          <article className={'prose'}>
             <header className="mb-8">
               <PageTitle />
 

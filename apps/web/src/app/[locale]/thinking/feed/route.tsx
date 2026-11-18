@@ -1,5 +1,4 @@
 import type { AggregateRoot } from '@mx-space/api-client'
-import { simpleCamelcaseKeys } from '@mx-space/api-client'
 import RSS from 'rss'
 
 import { apiClient } from '~/lib/request'
@@ -9,14 +8,9 @@ export const revalidate = 86400 // 1 day
 
 export async function GET() {
   const [agg, thinking] = await Promise.all([
-    fetch(apiClient.aggregate.proxy.toString(true), {
-      next: {
-        revalidate: 86400,
-      },
-    }).then(
-      async (res) =>
-        simpleCamelcaseKeys(await res.json()) as Promise<AggregateRoot>,
-    ),
+    // 走站内 apiClient（已注入 v14 归一化）；之前这里裸 fetch 聚合接口
+    // 再 simpleCamelcaseKeys，v14 信封下 agg.seo 恒 undefined 直接 500
+    apiClient.aggregate.getAggregateData('shiro') as Promise<AggregateRoot>,
     apiClient.recently.getList({
       size: 20,
     }),

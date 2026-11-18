@@ -537,6 +537,13 @@ const OptimizedImage = memo(
 
     const optimizedImageRef = useRef<HTMLImageElement>(null)
     const [exifData, setExifData] = useState<ExifData | null>(null)
+    // 优化器（/_next/image 由服务器端抓原图）偶发失败时回退原始 URL 直连，
+    // 不再一次失败就锁死「加载失败」
+    const [optimizerFailed, setOptimizerFailed] = useState(false)
+
+    useEffect(() => {
+      setOptimizerFailed(false)
+    }, [src])
 
     useIsomorphicLayoutEffect(() => {
       const $renderImage = optimizedImageRef.current
@@ -637,7 +644,7 @@ const OptimizedImage = memo(
 
     return (
       <>
-        {useOptimize ? (
+        {useOptimize && !optimizerFailed ? (
           <>
             <Image
               alt={alt || ''}
@@ -645,6 +652,11 @@ const OptimizedImage = memo(
               priority
               src={src!}
               {...rest}
+              onError={() => {
+                // 先回退直连，不直接上报 ImageLazy 的错误态；
+                // 回退的普通 img 再失败时走 rest.onError 正常报错
+                setOptimizerFailed(true)
+              }}
               height={+height}
               width={+width}
               ref={optimizedImageRef}
