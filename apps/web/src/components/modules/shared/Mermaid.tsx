@@ -2,9 +2,7 @@ import type { FC } from 'react'
 import { useEffect, useId, useState } from 'react'
 
 import { useIsDark } from '~/hooks/common/use-is-dark'
-import { useWrappedElementSize } from '~/providers/shared/WrappedElementProvider'
 
-import { FixedZoomedImage } from '../../ui/image'
 import { BlockLoading } from './BlockLoading'
 
 export const Mermaid: FC<{
@@ -14,7 +12,6 @@ export const Mermaid: FC<{
   const [error, setError] = useState('')
   const [svg, setSvg] = useState('')
   const [width, setWidth] = useState<number>()
-  const [height, setHeight] = useState<number>()
 
   const isDark = useIsDark()
 
@@ -52,7 +49,6 @@ export const Mermaid: FC<{
         }
         setSvg('')
         setWidth(undefined)
-        setHeight(undefined)
       }
 
       if (isCanceled) return
@@ -61,9 +57,8 @@ export const Mermaid: FC<{
         setSvg(result.svg)
 
         const match = result.svg.match(/viewBox="[^"]*\s([\d.]+)\s([\d.]+)"/)
-        if (match?.[1] && match?.[2]) {
-          setWidth(Number.parseInt(match?.[1]))
-          setHeight(Number.parseInt(match?.[2]))
+        if (match?.[1]) {
+          setWidth(Number.parseInt(match[1]))
         }
         setError('')
       }
@@ -73,24 +68,17 @@ export const Mermaid: FC<{
       }
     })
   }, [id, props.content])
-  const { w } = useWrappedElementSize()
-
-  const encoder = new TextEncoder()
-  const data = encoder.encode(svg)
-  const base64EncodedString = btoa(String.fromCharCode(...new Uint8Array(data)))
-  const imgSrc = `data:image/svg+xml;base64,${base64EncodedString}`
-
   return loading ? (
     <BlockLoading>Mermaid Loading...</BlockLoading>
   ) : svg ? (
-    <div>
-      <FixedZoomedImage
-        containerWidth={w}
-        src={imgSrc}
-        width={width}
-        height={height}
-      />
-    </div>
+    // 直接内联渲染 mermaid 产出的 SVG。旧实现把 SVG 编码成 base64 data URI
+    // 再塞进 FixedZoomedImage 的图片管线（带宽高 → 走 next/image），
+    // data URI SVG 在该管线里必然加载失败并被锁死成「加载失败」。
+    <div
+      className="[&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-w-full"
+      style={{ maxWidth: width ? `${width}px` : undefined }}
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
   ) : (
     <div className="flex min-h-[50px] items-center justify-center rounded-lg bg-red-100 text-sm">
       {error || 'Error'}
