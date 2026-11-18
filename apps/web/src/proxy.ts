@@ -21,6 +21,11 @@ const NEXT_INTL_LOCALE_HEADER = 'X-NEXT-INTL-LOCALE'
 // Check if a string looks like a locale code (2-3 lowercase letters)
 const localePattern = /^[a-z]{2,3}$/
 
+// 长得像 locale 代码、但实际是站内路由首段的例外：
+// 'og' 是 OG 图路由（/[locale]/og），若被当成不支持的 locale 砍掉，
+// /og 会被重定向到首页、OG 图永远出不来（home-og 当初就是为此绕开的）
+const NON_LOCALE_SEGMENTS = new Set(['og'])
+
 function isUnsupportedLocale(segment: string): boolean {
   return localePattern.test(segment) && !locales.includes(segment as any)
 }
@@ -137,7 +142,11 @@ export async function proxy(req: NextRequest) {
     // Check for unsupported locale in path and redirect to default
     const segments = pathname.split('/').filter(Boolean)
     const firstSegment = segments[0]
-    if (firstSegment && isUnsupportedLocale(firstSegment)) {
+    if (
+      firstSegment &&
+      !NON_LOCALE_SEGMENTS.has(firstSegment) &&
+      isUnsupportedLocale(firstSegment)
+    ) {
       // Remove the unsupported locale prefix and redirect
       const newPathname = `/${segments.slice(1).join('/')}`
       const clonedUrl = req.nextUrl.clone()
