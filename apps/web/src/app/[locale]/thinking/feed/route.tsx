@@ -13,7 +13,7 @@ export async function GET() {
     apiClient.aggregate.getAggregateData('shiro') as Promise<AggregateRoot>,
     apiClient.recently.getList({
       size: 20,
-    }),
+    }) as Promise<any>,
   ])
 
   const { title, description } = agg.seo
@@ -29,7 +29,12 @@ export async function GET() {
     pubDate: now.toUTCString(),
   })
 
-  for (const t of thinking.data) {
+  // /recently 是单键信封，管线 A 已解包成数组本身，不能再读 .data
+  const thinkingList: any[] = Array.isArray(thinking)
+    ? thinking
+    : (thinking?.data ?? [])
+
+  for (const t of thinkingList) {
     feed.item({
       title: new Date(t.created).toLocaleDateString(),
       description:
